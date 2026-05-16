@@ -375,8 +375,9 @@ const lvlName={red:'🔴 Severe',yellow:'🟡 Moderate',green:'🟢 Minor',blue:
 function initMap(){
   if(mapReady)return; mapReady=true;
   lmap=L.map('map',{zoomControl:true}).setView([18.787,98.993],13);
-  L.tileLayer('https://tile.openstreetmap.bzh/en/{z}/{x}/{y}.png', {
-    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',maxZoom:19
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>',
+    maxZoom:19
 }).addTo(lmap);
   pins.forEach(p=>{
     const icon=L.divIcon({
