@@ -375,9 +375,9 @@ const lvlName={red:'🔴 Severe',yellow:'🟡 Moderate',green:'🟢 Minor',blue:
 function initMap(){
   if(mapReady)return; mapReady=true;
   lmap=L.map('map',{zoomControl:true}).setView([18.787,98.993],13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  L.tileLayer('https://tile.openstreetmap.bzh/en/{z}/{x}/{y}.png', {
     attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',maxZoom:19
-  }).addTo(lmap);
+}).addTo(lmap);
   pins.forEach(p=>{
     const icon=L.divIcon({
       className:'',
