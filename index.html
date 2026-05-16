@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homu Recoveru — Flood Recovery Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --cream:#FDF6E3; --cream2:#FAF0CC; --brown:#7C5C3E; --brown2:#A0784F; --brown3:#C4A882;
+    --sky:#C8DFF0; --sky2:#A3C8E3; --sky3:#7BAECF;
+    --red:#C0392B; --red-soft:#F4CCCC;
+    --yel:#B8860B; --yel-soft:#FFF3CD;
+    --grn:#2E7D32; --grn-soft:#D4EDDA;
+    --blu:#1565C0; --blu-soft:#CCE0F5;
+    --border:#E8DCC8; --text:#3E2C1C; --sub:#7C6C5A; --white:#FFFFFF;
+    --shadow:0 2px 16px rgba(124,92,62,0.10); --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+
+  nav{background:var(--brown);height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:1000;box-shadow:0 2px 10px rgba(0,0,0,0.15);}
+  .nav-logo{font-family:'Playfair Display',serif;font-size:19px;color:var(--cream);letter-spacing:.5px;}
+  .nav-logo span{color:var(--sky2);}
+  .nav-tabs{display:flex;gap:4px;}
+  .nav-tab{padding:6px 18px;border-radius:20px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;background:transparent;color:rgba(253,246,227,.65);transition:all .2s;}
+  .nav-tab.active{background:var(--sky2);color:var(--brown);font-weight:700;}
+  .nav-tab:hover:not(.active){color:var(--cream);}
+
+  .view{display:none;} .view.active{display:block;}
+
+  /* MAP */
+  .map-layout{display:flex;height:calc(100vh - 58px);}
+  #map{flex:1;}
+  .map-sidebar{width:360px;background:var(--cream);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .sidebar-head{padding:16px 20px;background:var(--brown);color:var(--cream);}
+  .sidebar-head h3{font-size:15px;font-weight:700;margin-bottom:3px;}
+  .sidebar-head p{font-size:11px;opacity:.7;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--cream2);}
+  .leg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);}
+  .leg-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);}
+  .stat-box{padding:12px 6px;text-align:center;border-right:1px solid var(--border);}
+  .stat-box:last-child{border-right:none;}
+  .stat-num{font-size:18px;font-weight:700;}
+  .stat-label{font-size:10px;color:var(--sub);margin-top:2px;}
+  .pin-list{overflow-y:auto;flex:1;}
+  .pin-card{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+  .pin-card:hover{background:var(--cream2);}
+  .pin-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .pin-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;}
+  .badge-red{background:var(--red);} .badge-yellow{background:var(--yel);}
+  .badge-green{background:var(--grn);} .badge-blue{background:var(--blu);}
+  .pin-addr{font-size:13px;font-weight:600;margin-bottom:4px;}
+  .pin-tags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+  .pin-tag{background:var(--cream2);border:1px solid var(--border);padding:2px 8px;border-radius:8px;font-size:11px;color:var(--sub);}
+
+  /* UPLOAD */
+  .upload-wrap{max-width:660px;margin:0 auto;padding:32px 20px 60px;}
+  .upload-title{text-align:center;margin-bottom:28px;}
+  .upload-title h2{font-family:'Playfair Display',serif;font-size:24px;color:var(--brown);margin-bottom:6px;}
+  .upload-title p{font-size:14px;color:var(--sub);}
+
+  .prog-bar{display:flex;justify-content:center;margin-bottom:28px;position:relative;}
+  .prog-bar::before{content:'';position:absolute;top:15px;left:10%;right:10%;height:2px;background:var(--border);z-index:0;}
+  .ps{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;z-index:1;max-width:110px;}
+  .ps-dot{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--sub);transition:all .3s;}
+  .ps.active .ps-dot{background:var(--brown);border-color:var(--brown);color:var(--cream);}
+  .ps.done .ps-dot{background:var(--grn);border-color:var(--grn);color:white;}
+  .ps-lbl{font-size:11px;color:var(--sub);text-align:center;line-height:1.3;}
+  .ps.active .ps-lbl{color:var(--brown);font-weight:600;}
+
+  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-bottom:16px;}
+  .card-title{font-size:16px;font-weight:700;color:var(--brown);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+
+  .fg{margin-bottom:14px;}
+  .fg label{display:block;font-size:12px;font-weight:600;color:var(--brown);margin-bottom:5px;}
+  .fg input,.fg select,.fg textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);transition:border .2s;}
+  .fg input:focus,.fg select:focus{outline:none;border-color:var(--brown2);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .upload-zone{border:2px dashed var(--border);border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;background:var(--cream);transition:all .2s;}
+  .upload-zone:hover{border-color:var(--brown2);background:var(--cream2);}
+  .upload-zone.dragover{border-color:var(--grn);background:var(--grn-soft);}
+  .uz-icon{font-size:36px;margin-bottom:10px;}
+  .upload-zone p{color:var(--sub);font-size:13px;}
+  #fileInput{display:none;}
+  .photo-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:14px;}
+  .p-thumb{aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--cream2);}
+  .p-thumb img{width:100%;height:100%;object-fit:cover;}
+  .photo-count{font-size:12px;color:var(--sub);margin-top:8px;text-align:center;}
+
+  .btn{padding:11px 26px;border-radius:30px;border:none;font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s;}
+  .btn-full{width:100%;}
+  .btn-primary{background:var(--brown);color:var(--cream);}
+  .btn-primary:hover{background:var(--brown2);transform:translateY(-1px);}
+  .btn-primary:disabled{background:var(--border);color:var(--sub);cursor:not-allowed;transform:none;}
+  .btn-outline{background:transparent;border:2px solid var(--brown3);color:var(--brown);}
+  .btn-outline:hover{background:var(--cream2);}
+  .btn-row{display:flex;gap:10px;margin-top:4px;}
+
+  .score-box{border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;}
+  .score-red{background:var(--red-soft);border:2px solid var(--red);}
+  .score-yel{background:var(--yel-soft);border:2px solid var(--yel);}
+  .score-grn{background:var(--grn-soft);border:2px solid var(--grn);}
+  .score-emoji{font-size:44px;margin-bottom:8px;}
+  .score-level{font-size:20px;font-weight:700;margin-bottom:4px;}
+  .score-desc{font-size:13px;color:var(--sub);line-height:1.5;}
+  .score-red .score-level{color:var(--red);} .score-yel .score-level{color:var(--yel);} .score-grn .score-level{color:var(--grn);}
+
+  .summary-box{background:var(--sky);border:1px solid var(--sky2);border-radius:10px;padding:16px;margin-bottom:16px;font-size:13px;color:var(--text);line-height:1.7;}
+  .summary-box strong{color:var(--brown);}
+
+  .breakdown-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .bd-item{background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:12px;}
+  .bd-label{font-size:11px;color:var(--sub);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .bd-desc{font-size:12px;color:var(--text);margin-bottom:8px;line-height:1.5;}
+  .bd-bar-bg{background:var(--border);border-radius:4px;height:5px;margin-bottom:4px;}
+  .bd-bar{height:5px;border-radius:4px;transition:width 1s ease;}
+  .bd-pct{font-size:12px;font-weight:700;}
+
+  .funding-notice{background:var(--yel-soft);border:1px solid #D4A017;border-radius:10px;padding:14px 16px;font-size:13px;color:var(--text);margin-bottom:16px;line-height:1.7;}
+  .funding-notice strong{color:var(--yel);}
+
+  .f-item{border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .2s;display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
+  .f-item:hover{border-color:var(--brown2);background:var(--cream2);}
+  .f-item.sel{border-color:var(--sky3);background:var(--sky);}
+  .f-icon{font-size:22px;flex-shrink:0;margin-top:2px;}
+  .f-name{font-size:14px;font-weight:700;color:var(--brown);margin-bottom:2px;}
+  .f-desc{font-size:12px;color:var(--sub);}
+  .f-check{margin-left:auto;flex-shrink:0;width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;}
+  .f-item.sel .f-check{background:var(--sky3);border-color:var(--sky3);color:white;}
+  .f-detail{display:none;margin-top:12px;background:var(--white);border-radius:8px;padding:12px;font-size:12px;border:1px solid var(--border);}
+  .f-item.sel .f-detail{display:block;}
+  .f-detail ol{padding-left:16px;}
+  .f-detail li{margin-bottom:5px;color:var(--sub);line-height:1.6;}
+  .f-detail a{display:inline-block;margin-top:10px;padding:5px 14px;background:var(--sky2);color:var(--brown);border-radius:16px;font-size:12px;font-weight:600;text-decoration:none;}
+  .f-detail a:hover{background:var(--sky3);}
+  .f-warn{margin-top:8px;padding:8px 10px;background:var(--yel-soft);border-radius:6px;font-size:11px;color:#7C5800;line-height:1.5;}
+
+  .c-item{border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;background:var(--white);}
+  .c-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+  .c-name{font-size:14px;font-weight:700;color:var(--brown);margin-bottom:2px;}
+  .c-meta{font-size:12px;color:var(--sub);}
+  .c-level{font-size:11px;padding:4px 10px;border-radius:8px;font-weight:700;background:var(--sky);color:var(--brown);}
+  .c-spec{font-size:12px;color:var(--sub);margin-bottom:12px;}
+  .c-btns{display:flex;gap:8px;}
+  .c-btn{flex:1;padding:8px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+  .c-btn-msg{border:1.5px solid var(--brown3);background:white;color:var(--brown);}
+  .c-btn-msg:hover{background:var(--cream2);}
+  .c-btn-sel{border:none;background:var(--brown);color:var(--cream);}
+  .c-btn-sel:hover{background:var(--brown2);}
+
+  .overlay{display:none;position:fixed;inset:0;background:rgba(62,44,28,.88);z-index:9999;flex-direction:column;align-items:center;justify-content:center;color:var(--cream);text-align:center;}
+  .overlay.show{display:flex;}
+  .spinner{width:56px;height:56px;border:4px solid rgba(253,246,227,.2);border-top-color:var(--sky2);border-radius:50%;animation:spin .9s linear infinite;margin-bottom:20px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .overlay h3{font-size:20px;font-weight:700;margin-bottom:6px;}
+  .overlay p{font-size:13px;opacity:.7;}
+  .ov-prog-bg{width:240px;height:4px;background:rgba(253,246,227,.2);border-radius:4px;margin-top:18px;overflow:hidden;}
+  .ov-prog-bar{height:100%;background:var(--sky2);border-radius:4px;width:0%;transition:width .3s;}
+
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;align-items:center;justify-content:center;padding:20px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;}
+  .modal h3{font-size:17px;font-weight:700;color:var(--brown);margin-bottom:4px;}
+  .modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub);}
+  .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
+  .mg-cell{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:10px;}
+  .mg-label{font-size:11px;color:var(--sub);margin-bottom:3px;}
+  .mg-val{font-size:13px;font-weight:700;color:var(--text);}
+
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--brown);color:var(--cream);padding:11px 22px;border-radius:24px;font-size:13px;font-weight:600;z-index:3000;transition:transform .3s;box-shadow:var(--shadow);}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+
+  @media(max-width:768px){
+    .map-layout{flex-direction:column;}
+    .map-sidebar{width:100%;height:280px;border-left:none;border-top:1px solid var(--border);}
+    #map{height:45vh;}
+    .row2{grid-template-columns:1fr;}
+    .photo-grid{grid-template-columns:repeat(5,1fr);}
+    .breakdown-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Homu <span>Recoveru</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showView('map')">🗺️ Damage Map</button>
+    <button class="nav-tab" onclick="showView('upload')">📸 Report Damage</button>
+  </div>
+</nav>
+
+<!-- MAP VIEW -->
+<div id="view-map" class="view active">
+  <div class="map-layout">
+    <div id="map"></div>
+    <div class="map-sidebar">
+      <div class="sidebar-head">
+        <h3>📍 Flood Damage Map — Thailand 2024</h3>
+        <p>Real-time data from verified household reports</p>
+      </div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:var(--red)"></div>Severe</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--yel)"></div>Moderate</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--grn)"></div>Minor</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--blu)"></div>Repaired</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-num" style="color:var(--red)">247</div><div class="stat-label">Severe</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--yel)">583</div><div class="stat-label">Moderate</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--grn)">412</div><div class="stat-label">Minor</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--blu)">189</div><div class="stat-label">Repaired</div></div>
+      </div>
+      <div class="pin-list" id="pinList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD VIEW -->
+<div id="view-upload" class="view">
+  <div class="upload-wrap">
+    <div class="upload-title">
+      <h2>Report Your Home Damage</h2>
+      <p>Upload 10–30 photos for AI analysis and recovery assistance</p>
+    </div>
+    <div class="prog-bar">
+      <div class="ps active" id="ps1"><div class="ps-dot">1</div><div class="ps-lbl">Home Info</div></div>
+      <div class="ps" id="ps2"><div class="ps-dot">2</div><div class="ps-lbl">Upload Photos</div></div>
+      <div class="ps" id="ps3"><div class="ps-dot">3</div><div class="ps-lbl">AI Analysis</div></div>
+      <div class="ps" id="ps4"><div class="ps-dot">4</div><div class="ps-lbl">Financial Aid</div></div>
+      <div class="ps" id="ps5"><div class="ps-dot">5</div><div class="ps-lbl">Contractors</div></div>
+    </div>
+
+    <!-- S1 -->
+    <div id="step1">
+      <div class="card">
+        <div class="card-title">📍 Home Location (GPS Coordinates)</div>
+        <p style="font-size:13px;color:var(--sub);margin-bottom:16px">Enter your GPS coordinates for precise map placement. Find them by long-pressing your location on Google Maps.</p>
+        <div class="row2">
+          <div class="fg"><label>Latitude *</label><input type="number" id="lat" step="0.000001" placeholder="e.g. 18.787356"></div>
+          <div class="fg"><label>Longitude *</label><input type="number" id="lng" step="0.000001" placeholder="e.g. 98.993271"></div>
+        </div>
+        <div class="fg"><label>Province / District *</label><input type="text" id="province" placeholder="e.g. Mueang, Chiang Mai"></div>
+        <div class="fg"><label>Owner's Full Name *</label><input type="text" id="ownerName" placeholder="First and Last name"></div>
+        <div class="fg"><label>Phone Number *</label><input type="tel" id="phone" placeholder="08X-XXX-XXXX"></div>
+        <div class="fg">
+          <label>Consent to share report with banks / insurers (for loan & claim processing)</label>
+          <select id="bankConsent">
+            <option value="no">No — keep my report private</option>
+            <option value="yes">Yes — allow banks & insurers to access my damage report (recommended)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="goStep(2)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S2 -->
+    <div id="step2" style="display:none">
+      <div class="card">
+        <div class="card-title">📸 Upload Damage Photos</div>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="uz-icon">🖼️</div>
+          <p><strong>Click to select photos</strong> or drag & drop</p>
+          <p style="margin-top:6px;font-size:12px">JPG, PNG · 10–30 photos recommended for best accuracy</p>
+        </div>
+        <input type="file" id="fileInput" multiple accept="image/*" onchange="handleFiles(this.files)">
+        <div class="photo-grid" id="photoGrid"></div>
+        <div class="photo-count" id="photoCount"></div>
+        <div class="btn-row" style="margin-top:18px">
+          <button class="btn btn-outline" onclick="goStep(1)" style="flex:1">← Back</button>
+          <button class="btn btn-primary" id="analyzeBtn" onclick="startAnalysis()" disabled style="flex:2">Analyze with AI →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- S3 -->
+    <div id="step3" style="display:none">
+      <div class="card">
+        <div class="card-title">🤖 AI Damage Analysis</div>
+        <div id="scoreBox" class="score-box"></div>
+        <div class="summary-box" id="summaryBox"></div>
+        <div class="breakdown-grid" id="breakdownGrid"></div>
+        <div style="background:var(--cream2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;color:var(--sub);margin-bottom:16px;line-height:1.6">
+          ℹ️ <strong style="color:var(--brown)">About cost estimates:</strong> Repair costs will appear in Step 5, based on your damage level combined with each contractor's price range for that level — giving you more accurate, company-specific figures.
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="goStep(2)" style="flex:1">← Back</button>
+          <button class="btn btn-primary" onclick="goStep(4)" style="flex:2">Request Financial Aid →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- S4 -->
+    <div id="step4" style="display:none">
+      <div class="card">
+        <div class="card-title">💰 Financial Aid Channels</div>
+        <div class="funding-notice">
+          You may select <strong>more than one channel</strong>. However, please read each carefully —
+          <strong>some government channels prohibit duplicate applications</strong> (e.g. applying to both DDPM and the PM Fund simultaneously may not be permitted).
+          Combining government relief with bank loans or insurance claims is generally allowed.
+          <br><br>
+          This platform is an <strong>information guide only</strong>. All applications must be submitted directly through each agency's official website or office.
+        </div>
+        <div id="fundingList"></div>
+        <div class="btn-row" style="margin-top:4px">
+          <button class="btn btn-outline" onclick="goStep(3)" style="flex:1">← Back</button>
+          <button class="btn btn-primary" onclick="goStep(5)" style="flex:2">Find Contractors →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- S5 -->
+    <div id="step5" style="display:none">
+      <div class="card">
+        <div class="card-title">🔨 Contractors Near You</div>
+        <p style="font-size:13px;color:var(--sub);margin-bottom:4px">
+          Price ranges shown are each company's rate for
+          <strong id="dmgLevelTag" style="color:var(--brown)">your damage level</strong>.
+          Contact them for a detailed on-site quote.
+        </p>
+        <div id="contractorList" style="margin-top:14px"></div>
+        <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="goStep(4)">← Back</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay">
+  <div class="spinner"></div>
+  <h3>AI is analyzing your photos...</h3>
+  <p id="ovStatus">Scanning structural elements...</p>
+  <div class="ov-prog-bg"><div class="ov-prog-bar" id="ovBar"></div></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modalBg" onclick="closeMod(event)">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── VIEW ──
+function showView(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  const tabs=document.querySelectorAll('.nav-tab');
+  if(v==='map'){tabs[0].classList.add('active');initMap();}
+  if(v==='upload')tabs[1].classList.add('active');
+}
+
+// ── MAP ──
+let mapReady=false,lmap;
+const pins=[
+  {id:1,lat:18.7900,lng:98.9850,level:'red',    addr:'Moo 3, Chang Phueak, Mueang, Chiang Mai',   dmg:'Roof + Wall + Structure',    status:'Waiting for contractor',fund:'DDPM'},
+  {id:2,lat:18.8050,lng:99.0150,level:'yellow', addr:'Moo 7, Suthep, Mueang, Chiang Mai',          dmg:'Floor + Wall',               status:'Under repair',          fund:'Insurance'},
+  {id:3,lat:18.7700,lng:98.9700,level:'green',  addr:'Moo 1, Nong Hoi, Mueang, Chiang Mai',        dmg:'Surface / Paint',            status:'Waiting for contractor',fund:'Thai Red Cross'},
+  {id:4,lat:18.8200,lng:98.9500,level:'blue',   addr:'Moo 5, Pa Tan, Mueang, Chiang Mai',           dmg:'Structure (fully repaired)', status:'✅ Repaired',           fund:'Bank loan'},
+  {id:5,lat:18.7550,lng:99.0050,level:'red',    addr:'Moo 2, Tha Sala, Mueang, Chiang Mai',         dmg:'Structure + Roof',           status:'Waiting for contractor',fund:'PM Fund'},
+  {id:6,lat:18.8100,lng:99.0200,level:'yellow', addr:'Moo 4, Fa Ham, Mueang, Chiang Mai',           dmg:'Floor',                      status:'Under repair',          fund:'DDPM'},
+  {id:7,lat:18.7650,lng:98.9600,level:'green',  addr:'Moo 9, San Phi Suea, Mueang, Chiang Mai',     dmg:'Door / Window frames',       status:'Waiting for contractor',fund:'Thai Red Cross'},
+  {id:8,lat:18.7980,lng:98.9750,level:'blue',   addr:'Moo 6, Wat Ket, Mueang, Chiang Mai',          dmg:'Wall (fully repaired)',      status:'✅ Repaired',           fund:'Insurance'},
+];
+const colMap={red:'#C0392B',yellow:'#B8860B',green:'#2E7D32',blue:'#1565C0'};
+const lvlName={red:'🔴 Severe',yellow:'🟡 Moderate',green:'🟢 Minor',blue:'🔵 Repaired'};
+
+function initMap(){
+  if(mapReady)return; mapReady=true;
+  lmap=L.map('map',{zoomControl:true}).setView([18.787,98.993],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',maxZoom:19
+  }).addTo(lmap);
+  pins.forEach(p=>{
+    const icon=L.divIcon({
+      className:'',
+      html:`<div style="width:18px;height:18px;border-radius:50%;background:${colMap[p.level]};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;"></div>`,
+      iconSize:[18,18],iconAnchor:[9,9]
+    });
+    L.marker([p.lat,p.lng],{icon}).addTo(lmap).on('click',()=>openPin(p));
+  });
+  renderPinList();
+}
+
+function renderPinList(){
+  document.getElementById('pinList').innerHTML=pins.map(p=>`
+    <div class="pin-card" onclick='openPin(${JSON.stringify(p).replace(/'/g,"&#39;")})'>
+      <div class="pin-card-top">
+        <span class="pin-badge badge-${p.level}">${lvlName[p.level]}</span>
+        <span style="font-size:11px;color:var(--sub)">#${p.id}</span>
+      </div>
+      <div class="pin-addr">${p.addr}</div>
+      <div class="pin-tags">
+        <span class="pin-tag">🔧 ${p.dmg}</span>
+        <span class="pin-tag">📋 ${p.status}</span>
+      </div>
+    </div>`).join('');
+}
+
+function openPin(p){
+  if(lmap)lmap.setView([p.lat,p.lng],15);
+  document.getElementById('modalBody').innerHTML=`
+    <button class="modal-close" onclick="document.getElementById('modalBg').classList.remove('show')">✕</button>
+    <h3>${lvlName[p.level]}</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:4px">📍 ${p.addr}</p>
+    <div class="modal-grid">
+      <div class="mg-cell"><div class="mg-label">Damage Type</div><div class="mg-val">${p.dmg}</div></div>
+      <div class="mg-cell"><div class="mg-label">Repair Status</div><div class="mg-val">${p.status}</div></div>
+      <div class="mg-cell"><div class="mg-label">Aid Applied</div><div class="mg-val">${p.fund}</div></div>
+      <div class="mg-cell"><div class="mg-label">Coordinates</div><div class="mg-val">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div></div>
+    </div>
+    <p style="font-size:11px;color:var(--sub);text-align:center">AI-verified photo report · ${new Date().toLocaleDateString('en-GB')}</p>`;
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeMod(e){if(e.target===document.getElementById('modalBg'))document.getElementById('modalBg').classList.remove('show');}
+
+// ── UPLOAD ──
+let files=[],result=null;
+
+function goStep(n){
+  if(n===2){
+    const la=document.getElementById('lat').value;
+    const lo=document.getElementById('lng').value;
+    const pr=document.getElementById('province').value;
+    const nm=document.getElementById('ownerName').value;
+    if(!la||!lo||!pr||!nm){toast('Please fill in all required fields.');return;}
+    if(parseFloat(la)<5||parseFloat(la)>21){toast('Latitude must be between 5 and 21 (Thailand).');return;}
+    if(parseFloat(lo)<97||parseFloat(lo)>106){toast('Longitude must be between 97 and 106 (Thailand).');return;}
+  }
+  for(let i=1;i<=5;i++){
+    const el=document.getElementById('step'+i);
+    if(el)el.style.display=i===n?'block':'none';
+    const ps=document.getElementById('ps'+i);
+    if(ps){ps.classList.remove('active','done');if(i<n)ps.classList.add('done');if(i===n)ps.classList.add('active');}
+  }
+  if(n===5)renderContractors();
+  window.scrollTo({top:60,behavior:'smooth'});
+}
+
+function handleFiles(fs){
+  files=Array.from(fs).slice(0,30);
+  const grid=document.getElementById('photoGrid');
+  grid.innerHTML='';
+  files.forEach(f=>{
+    const d=document.createElement('div');d.className='p-thumb';
+    const img=document.createElement('img');img.src=URL.createObjectURL(f);
+    d.appendChild(img);grid.appendChild(d);
+  });
+  document.getElementById('photoCount').textContent=
+    `${files.length} photo${files.length!==1?'s':''} selected ${files.length>=10?'✅':'(10–30 recommended)'}`;
+  document.getElementById('analyzeBtn').disabled=files.length<1;
+}
+
+const uz=document.getElementById('uploadZone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('dragover');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('dragover'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('dragover');handleFiles(e.dataTransfer.files);});
+
+function startAnalysis(){
+  if(!files.length){toast('Please upload photos first.');return;}
+  const ov=document.getElementById('overlay');
+  const bar=document.getElementById('ovBar');
+  const st=document.getElementById('ovStatus');
+  ov.classList.add('show');
+  const msgs=['Scanning structural elements...','Detecting roof damage...','Analyzing wall integrity...','Assessing floor damage...','Calculating damage severity...','Generating report...'];
+  let pct=0,mi=0;
+  const iv=setInterval(()=>{
+    pct+=Math.random()*14+4;if(pct>100)pct=100;
+    bar.style.width=pct+'%';
+    mi=Math.min(Math.floor((pct/100)*msgs.length),msgs.length-1);
+    st.textContent=msgs[mi];
+    if(pct>=100){clearInterval(iv);setTimeout(()=>{ov.classList.remove('show');buildResult();goStep(3);},500);}
+  },320);
+}
+
+function buildResult(){
+  const opts=[
+    {cls:'score-red',emoji:'🔴',level:'Severe Damage',pin:'red',
+     desc:'Multiple structural components critically damaged. Immediate professional assessment required.',
+     summary:'Based on the uploaded photos, your home has sustained <strong>severe damage</strong> across multiple areas. The roof and walls show critical structural compromise, with the floor and foundation also affected. Immediate professional inspection is essential before re-occupation.',
+     parts:[
+       {name:'Roof',pct:78,color:'#C0392B',detail:'Significant structural collapse detected. Ridge and rafters compromised. Full roof replacement is likely required.'},
+       {name:'Walls',pct:62,color:'#C0392B',detail:'Deep cracking and bulging in load-bearing walls. Risk of further collapse without immediate shoring.'},
+       {name:'Floor',pct:45,color:'#B8860B',detail:'Floor surface warped and separated. Sub-floor moisture damage detected from prolonged flooding.'},
+       {name:'Foundation',pct:35,color:'#B8860B',detail:'Foundation showing minor displacement. Professional structural inspection strongly recommended.'},
+     ]},
+    {cls:'score-yel',emoji:'🟡',level:'Moderate Damage',pin:'yellow',
+     desc:'Several areas damaged but main structure is largely intact. Repair needed within weeks.',
+     summary:'Your home shows <strong>moderate damage</strong> primarily in flooring and walls. The main structure appears stable. Flooding has caused significant water damage to interior surfaces. Prompt repair will prevent further deterioration.',
+     parts:[
+       {name:'Roof',pct:30,color:'#B8860B',detail:'Partial tile displacement and minor leakage points. Gutters damaged. Repair recommended within 2 weeks.'},
+       {name:'Walls',pct:50,color:'#B8860B',detail:'Surface cracking and paint peeling throughout. One wall shows deeper cracking near window frames.'},
+       {name:'Floor',pct:60,color:'#B8860B',detail:'Floor tiles cracked or lifted in multiple rooms. Significant water damage to flooring materials.'},
+       {name:'Foundation',pct:10,color:'#2E7D32',detail:'Core structure appears sound. No visible foundation issues detected from available photos.'},
+     ]},
+    {cls:'score-grn',emoji:'🟢',level:'Minor Damage',pin:'green',
+     desc:'Damage is largely cosmetic. Structure is sound. Repairs can be scheduled at your convenience.',
+     summary:'Your home has sustained <strong>minor cosmetic damage</strong>. The structure remains sound and safe for occupation. Damage is primarily from floodwater contact — surface staining, paint damage, and light warping. Routine repairs should suffice.',
+     parts:[
+       {name:'Roof',pct:8,color:'#2E7D32',detail:'A few displaced roof tiles. Minor maintenance required but no structural concern detected.'},
+       {name:'Walls',pct:22,color:'#2E7D32',detail:'Paint blistering and surface staining from floodwater contact. No structural wall damage detected.'},
+       {name:'Floor',pct:18,color:'#2E7D32',detail:'Light water marks and minor warping on wood surfaces. Drying and re-sealing recommended.'},
+       {name:'Foundation',pct:5,color:'#2E7D32',detail:'Structure is intact. No significant foundation issues detected.'},
+     ]},
+  ];
+  result=opts[Math.floor(Math.random()*opts.length)];
+  const r=result;
+  document.getElementById('scoreBox').className='score-box '+r.cls;
+  document.getElementById('scoreBox').innerHTML=`<div class="score-emoji">${r.emoji}</div><div class="score-level">${r.level}</div><div class="score-desc">${r.desc}</div>`;
+  document.getElementById('summaryBox').innerHTML=`<strong>AI Summary:</strong><br>${r.summary}`;
+  document.getElementById('breakdownGrid').innerHTML=r.parts.map(p=>`
+    <div class="bd-item">
+      <div class="bd-label">${p.name}</div>
+      <div class="bd-desc">${p.detail}</div>
+      <div class="bd-bar-bg"><div class="bd-bar" style="width:${p.pct}%;background:${p.color}"></div></div>
+      <div class="bd-pct" style="color:${p.color}">${p.pct}% damaged</div>
+    </div>`).join('');
+}
+
+// ── FUNDING ──
+const funding=[
+  {id:'ddpm',icon:'🚨',name:'DDPM — Dept. of Disaster Prevention & Mitigation',
+   desc:'Government flood relief: 9,000 THB per affected household (2024 program)',
+   warn:'⚠️ Government relief channel. Do NOT apply to both DDPM and the PM Fund simultaneously — this constitutes duplicate claiming, which is prohibited by law.',
+   steps:['Apply online at <a href="https://flood67.disaster.go.th" target="_blank">flood67.disaster.go.th</a> or visit your local municipality (อบต. / เทศบาล) in person','Required documents: National ID card + household registration (ทะเบียนบ้าน) + disaster certificate issued by local authority (หนังสือรับรองผู้ประสบภัย)','Payment is transferred via PromptPay linked to your National ID','Processing time: 30–90 days from verified application'],
+   link:'https://flood67.disaster.go.th',linkTxt:'Apply at DDPM →'},
+  {id:'pm',icon:'🏛️',name:"Prime Minister's Disaster Relief Fund",
+   desc:'Supplementary government aid for severely affected households — amount varies by damage severity',
+   warn:'⚠️ This is a government channel. Applying to DDPM and the PM Fund simultaneously may constitute duplicate claiming — verify eligibility and check with your local authority before applying to both.',
+   steps:["Submit application at your provincial governor's office (ศาลากลางจังหวัด) or through your district office",'Required: National ID, household registration, damage photos, and disaster certificate from local authority','A government officer may verify your claim in person or via your Homu Recoveru damage report','Aid amount: up to 50,000 THB for total loss cases; varies by provincial assessment'],
+   link:'https://www.opm.go.th',linkTxt:'PM Office Info →'},
+  {id:'redcross',icon:'🏥',name:'Thai Red Cross Society',
+   desc:'Emergency humanitarian assistance — essential supplies, temporary support, and cash aid where available',
+   warn:null,
+   steps:['Register at <a href="https://www.redcross.or.th" target="_blank">redcross.or.th</a> or contact your nearest Red Cross chapter (สภากาชาด)','Required: National ID + damage photos','Red Cross volunteers will assess your situation within 3–7 days','Aid typically includes essential supplies; cash assistance depends on chapter funds and severity'],
+   link:'https://www.redcross.or.th',linkTxt:'Thai Red Cross →'},
+  {id:'bank',icon:'🏦',name:'Bank Home Repair Loan (GSB / BAAC)',
+   desc:'Government Savings Bank: 0% interest first 3 months. Up to 500,000 THB (existing customers) or 200,000 THB (new, no collateral required)',
+   warn:null,
+   steps:['Existing GSB customers: apply via MyMo app → "Disaster Relief Measures" or call 1115','New customers: visit any GSB branch with required documents','Required: National ID, household registration, land title deed (if available), damage photos from Homu Recoveru','Approval typically within 7–14 business days','BAAC (ธ.ก.ส.) also offers similar agricultural household loans — call 02-555-0555'],
+   link:'https://www.gsb.or.th',linkTxt:'GSB Website →'},
+  {id:'insurance',icon:'📄',name:'Home / Flood Insurance Claim',
+   desc:'If you hold an existing home or flood insurance policy, file a claim with your insurer. Your Homu Recoveru report can substitute for an adjuster visit.',
+   warn:null,
+   steps:['Call your insurance company claims hotline (number on your policy document)','Provide: policy number + damage photos from Homu Recoveru (consent required in Step 1)','Your AI damage report may allow the insurer to process your claim without an on-site adjuster visit — expediting payment','Claim payout timeline: 15–45 days depending on policy terms','Check your policy document for flood coverage exclusions before filing','Contact OIC (สำนักงานคปภ.) at 1186 if you have a dispute with your insurer'],
+   link:'https://www.oic.or.th',linkTxt:'OIC Consumer Help →'},
+];
+
+function renderFunding(){
+  document.getElementById('fundingList').innerHTML=funding.map(f=>`
+    <div class="f-item" id="fi-${f.id}" onclick="toggleF('${f.id}')">
+      <div class="f-icon">${f.icon}</div>
+      <div style="flex:1">
+        <div class="f-name">${f.name}</div>
+        <div class="f-desc">${f.desc}</div>
+        <div class="f-detail">
+          <strong style="font-size:12px;display:block;margin-bottom:8px">How to apply:</strong>
+          <ol>${f.steps.map(s=>`<li>${s}</li>`).join('')}</ol>
+          ${f.warn?`<div class="f-warn">${f.warn}</div>`:''}
+          <a href="${f.link}" target="_blank">${f.linkTxt}</a>
+        </div>
+      </div>
+      <div class="f-check" id="fc-${f.id}">✓</div>
+    </div>`).join('');
+}
+function toggleF(id){document.getElementById('fi-'+id).classList.toggle('sel');}
+
+// ── CONTRACTORS ──
+const contractors=[
+  {name:'Thai Pro Construction Co., Ltd.',rating:'⭐ 4.8',reviews:'127 reviews',dist:'2.3 km',spec:'Structure, Roof, Walls',ranges:{red:'฿150,000–220,000',yellow:'฿50,000–90,000',green:'฿8,000–25,000'}},
+  {name:'Chiang Mai Repair House Partnership',rating:'⭐ 4.6',reviews:'89 reviews',dist:'4.1 km',spec:'Roof, Electrical systems',ranges:{red:'฿180,000–260,000',yellow:'฿60,000–110,000',green:'฿10,000–30,000'}},
+  {name:'Mr. Somchai — General Contractor',rating:'⭐ 4.5',reviews:'43 reviews',dist:'5.8 km',spec:'General repairs, Floor, Walls',ranges:{red:'฿120,000–200,000',yellow:'฿40,000–80,000',green:'฿5,000–20,000'}},
+];
+
+function renderContractors(){
+  const lvl=result?result.pin:'yellow';
+  const lvlLabel=result?result.level:'your damage level';
+  document.getElementById('dmgLevelTag').textContent=lvlLabel;
+  document.getElementById('contractorList').innerHTML=contractors.map(c=>`
+    <div class="c-item">
+      <div class="c-top">
+        <div><div class="c-name">${c.name}</div><div class="c-meta">${c.rating} · ${c.reviews} · 📍 ${c.dist}</div></div>
+        <div class="c-level">${c.ranges[lvl]||'—'}</div>
+      </div>
+      <div class="c-spec">🔧 Specializes in: ${c.spec}</div>
+      <div class="c-btns">
+        <button class="c-btn c-btn-msg" onclick="toast('Message sent to ${c.name.replace(/'/g,'&#39;')}')">💬 Message</button>
+        <button class="c-btn c-btn-sel" onclick="confirmJob('${c.name.replace(/'/g,'&#39;')}')">✅ Select</button>
+      </div>
+    </div>`).join('');
+}
+function confirmJob(name){toast('✅ '+name+' selected! Pin turns blue when repair is complete.');}
+
+// ── TOAST ──
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+// ── INIT ──
+renderFunding();
+initMap();
+</script>
+</body>
+</html>
